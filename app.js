@@ -58,13 +58,11 @@ DOTENV config
 ======================================================================================*/
 require('dotenv').config()
 
-console.log(process.env.TEST)
-
 const dbHost = process.env.DBHOST
 const dbUser = process.env.DBUSER
 const dbPassword = process.env.DBPASSWORD
 const database = process.env.DATABASE
-const bcryptSecret = process.env.BCRYPTSECRET
+const jwtSecret = process.env.JWTSECRET
 
 
 const uuid = require('uuid');
@@ -168,7 +166,7 @@ const authMiddleware = (req, res, next) => {
         return
     }
 
-    jwt.verify(token, bcryptSecret, function(err, decoded) {
+    jwt.verify(token, jwtSecret, function(err, decoded) {
 
         //if token has expired
         if(err) {
@@ -263,7 +261,7 @@ app.post('/login', (req, res) => {
         else{
             bcrypt.compare(password, result[0][0].password, function(err, hresult) {
                 if(hresult === true){
-                    const token = jwt.sign({username: result[0][0].username, userID : result[0][0].userID}, bcryptSecret, { expiresIn: '1h' });
+                    const token = jwt.sign({username: result[0][0].username, userID : result[0][0].userID}, jwtSecret, { expiresIn: '1h' });
                     const response = {
                         userID : result[0][0].userID,
                         username: result[0][0].username,
