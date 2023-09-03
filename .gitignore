@@ -23,6 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 
+# Things I added
 profilePictures
-
 .env
+*.pem
+*.key

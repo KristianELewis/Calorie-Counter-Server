@@ -63,14 +63,10 @@ const dbUser = process.env.DBUSER
 const dbPassword = process.env.DBPASSWORD
 const database = process.env.DATABASE
 const jwtSecret = process.env.JWTSECRET
+const certLocation = process.env.CERT
+const keyLocation = process.env.KEY
 
 
-const uuid = require('uuid');
-const express = require('express')
-const cors = require('cors');
-const bodyParser = require('body-parser');
-
-const app = express()
 
 
 /*======================================================================================
@@ -79,6 +75,21 @@ EXPRESS CONFIG
 
 ======================================================================================*/
 
+
+const cors = require('cors');
+const bodyParser = require('body-parser');
+const uuid = require('uuid');
+
+//needed for TLS
+const fs = require('fs');
+const https = require('https');
+
+const express = require('express');
+
+const app = express()
+
+
+
 const path = require('path'); //needed for the path stuff
 
 app.use(cors());
@@ -86,16 +97,28 @@ app.use(express.json());
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: false }))
 
-//app.use(express.static("dist"))
+app.use(express.static("dist"))
 
 const port = 3000
 
-
+/*
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
+*/
 
-
+https.createServer(
+    {
+      requestCert: true,
+      rejectUnauthorized: false,
+      cert: fs.readFileSync(certLocation),
+      key: fs.readFileSync(keyLocation),
+    },
+    app
+  )
+  .listen(port, () => {
+    console.log("started")
+  });
 
 
 /*======================================================================================
@@ -248,10 +271,10 @@ app.post('/login/token/:userID', authMiddleware, (req, res) => {
 })
 
 
+//The lack of error handling is causing issues here
 app.post('/login', (req, res) => {
     const username = req.body.username
     const password =  req.body.password
-
         //create better object for return value
     connection.execute(`SELECT userID, username, password, name, profilePicture, age, weight FROM users WHERE username= ?`, [username])
     .then(result => {
@@ -354,6 +377,8 @@ app.post('/signup', verifySignup, async function (req, res, next) {
             res.send({error: true, errorType: "Username already in use"})
         }
         else{
+            //Getting wrong value for field here, could potentially use this for validating input, but probably should not be contacting the sql server
+            //console.log(err)
             res.send({error: true, errorType: "Server side error. Try again later."})
         }
     })
