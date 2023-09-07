@@ -319,30 +319,43 @@ TODO
 -needs more validiation, no spaces, no letters for number, things like that
 ==========================================================================*/
 //not sure how else to handle this
+
+//checks if there is white space
+//  /\s/ is regular expression for white space
+function hasWhiteSpace(str) {
+    return /\s/.test(str);
+}
+
+
+//i think this validate function could be broken up, lots of overlap. Some of this could be turned into different functions
+//should probably check the length
+//this needs to stop using the old error system
 const verifySignup = (req, res, next) => {
     if(req.body.userData === undefined)
     {
         res.send({error: true, errorType : "No information sent"})
     }
-    else if(req.body.userData.username === undefined || req.body.userData.username === '')
+    else if(req.body.userData.username === undefined || req.body.userData.username === '' || hasWhiteSpace(req.body.userData.username))
     {
-        res.send({error: true, errorType : "No username sent"})
+        res.send({error: true, errorType : "Invalid Username"})
     }
-    else if(req.body.userData.password === undefined || req.body.userData.password === '')
+    else if(req.body.userData.password === undefined || req.body.userData.password === '' || hasWhiteSpace(req.body.userData.password))
     {
-        res.send({error: true, errorType : "No password sent"})
+        res.send({error: true, errorType : "Invalid Password"})
     }
-    else if(req.body.userData.name === undefined || req.body.userData.name === '')
+    else if(req.body.userData.name === undefined || req.body.userData.name === '') //names can contain white space
     {
         res.send({error: true, errorType : "No name sent"})
     }
-    else if(req.body.userData.age === undefined || req.body.userData.age < 1)
+    //isNaN checks if a value is valid number. Maybe remove the undefined check?
+    //currently using the old error system, If moving over to errors, undefined and isNan will be checking for different errors, The users should be told what the issue is
+    else if(req.body.userData.age === undefined || req.body.userData.age < 1 || isNaN(req.body.userData.age))
     {
-        res.send({error: true, errorType : "No age sent"})
+        res.send({error: true, errorType : "Invalid Age"})
     }
-    else if(req.body.userData.weight === undefined || req.body.userData.weight < 1)
+    else if(req.body.userData.weight === undefined || req.body.userData.weight < 1 || isNaN(req.body.userData.weight))
     {
-        res.send({error: true, errorType : "No weight sent"})
+        res.send({error: true, errorType : "Invalid Weight"})
     }
     else 
     {
