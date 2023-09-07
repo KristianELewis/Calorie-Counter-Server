@@ -97,7 +97,7 @@ app.use(express.json());
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: false }))
 
-app.use(express.static("dist"))
+//app.use(express.static("dist"))
 
 const port = 3000
 
@@ -264,7 +264,6 @@ app.post('/login/token/:userID', authMiddleware, (req, res) => {
                 age : result[0][0].age,
                 weight : result[0][0].weight,
             }
-            console.log("Match")
             res.send(response)
         }
     })
@@ -284,7 +283,7 @@ app.post('/login', (req, res) => {
         else{
             bcrypt.compare(password, result[0][0].password, function(err, hresult) {
                 if(hresult === true){
-                    const token = jwt.sign({username: result[0][0].username, userID : result[0][0].userID}, jwtSecret, { expiresIn: '1h' });
+                    const token = jwt.sign({username: result[0][0].username, userID : result[0][0].userID}, jwtSecret, { expiresIn: '1d' });
                     const response = {
                         userID : result[0][0].userID,
                         username: result[0][0].username,
@@ -294,11 +293,9 @@ app.post('/login', (req, res) => {
                         weight : result[0][0].weight,
                         token : token
                     }
-                    console.log("Match")
                     res.send(response)
                 }
                 else{
-                    console.log("Not a match")
                     res.send({userID: "notFound"})
                 }
             })
@@ -487,7 +484,6 @@ TODO
 
 async function testsearch(search) {
     const search_ = '%' + search + '%';
-    console.log(search_)
     const mealQuery = await connection.execute(`SELECT * FROM foodItems WHERE name LIKE ? ORDER BY name LIMIT 5`, [search_])
     const count = await connection.execute(`SELECT count(*) AS count FROM foodItems WHERE name LIKE ?`, [search_])
     meals = [mealQuery[0], count[0][0]]
@@ -509,7 +505,6 @@ app.get('/database-food/:mealitemID', (req, res) => {
 
 async function testsearch2(search, start) {
     const search_ = '%' + search + '%';
-    console.log(search_)
     const mealQuery = await connection.execute(`SELECT * FROM foodItems WHERE name LIKE ? ORDER BY name LIMIT ?, 5`, [search_, start])
     const count = await connection.execute(`SELECT count(*) AS count FROM foodItems WHERE name LIKE ?`, [search_])
     meals = [mealQuery[0], count[0][0]]
@@ -616,8 +611,6 @@ this needs more complicated error hanling
 =====================================================================================*/
 
 app.patch('/user/:userID/upload-profile-picture', authMiddleware, upload.single('file'), function (req, res, next) {
-    console.log("What")
-    console.log(req.params.userID)
     connection.execute(`UPDATE users SET profilePicture = 1 WHERE userID = ?`, [req.params.userID])
     .then(result => {
         //throw new Error("Testing Error");
