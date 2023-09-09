@@ -101,12 +101,12 @@ app.use(bodyParser.urlencoded({ extended: false }))
 
 const port = 3000
 
-/*
+
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
-*/
 
+/*
 https.createServer(
     {
       requestCert: true,
@@ -119,7 +119,7 @@ https.createServer(
   .listen(port, () => {
     console.log("started")
   });
-
+*/
 
 /*======================================================================================
 MULTER
@@ -404,7 +404,7 @@ TODO
 ==========================================================================*/
 app.get('/user/:userID/date/:date', authMiddleware, (req, res) => {
     connection.execute(
-        `SELECT name, loggedID, calories, protein, fat, carbs, amount, meal 
+        `SELECT name, loggedID, servingSize, servingUnit, calories, protein, fat, carbs, amount, meal 
             FROM loggedMealItems 
         JOIN foodItems ON foodItems.foodItemID = loggedMealItems.foodItemID 
             WHERE userID= ? AND day = ? `, [req.params.userID, req.params.date])
@@ -543,8 +543,9 @@ Add new food item to database
 
 app.post('/database-food/new-item', (req, res) => {
     const foodItemID = `${uuid.v4()}`;
-    connection.execute(`INSERT INTO foodItems(foodItemID, name, calories, protein, fat, carbs) VALUES (?, ?, ?, ?, ?, ?)`, 
-        [foodItemID, req.body.name, req.body.calories, req.body.protein, req.body.fat, req.body.carbs])
+    console.log(req.body)
+    connection.execute(`INSERT INTO foodItems(foodItemID, name, servingSize, servingUnit, calories, protein, fat, carbs) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, 
+        [foodItemID, req.body.name, req.body.servingSize, req.body.servingUnit, req.body.calories, req.body.protein, req.body.fat, req.body.carbs])
     .then(result => {
         //throw new Error("Testing Error");
         res.send({error : false, errorType: "none"})
