@@ -543,9 +543,8 @@ Add new food item to database
 
 app.post('/database-food/new-item', (req, res) => {
     const foodItemID = `${uuid.v4()}`;
-    console.log(req.body)
-    connection.execute(`INSERT INTO foodItems(foodItemID, name, servingSize, servingUnit, calories, protein, fat, carbs) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, 
-        [foodItemID, req.body.name, req.body.servingSize, req.body.servingUnit, req.body.calories, req.body.protein, req.body.fat, req.body.carbs])
+    connection.execute(`INSERT INTO foodItems(foodItemID, name, brand, servingSize, servingUnit, calories, protein, fat, carbs) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+        [foodItemID, req.body.name, req.body.brandName, req.body.servingSize, req.body.servingUnit, req.body.calories, req.body.protein, req.body.fat, req.body.carbs])
     .then(result => {
         //throw new Error("Testing Error");
         res.send({error : false, errorType: "none"})
