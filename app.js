@@ -577,6 +577,8 @@ TODO
 app.get('/user/:userID/profile-picture/:profilePicture', (req, res) => {
     if(req.params.profilePicture === '0')
     {
+        res.status(418).send({message: "No Profile Picture"});
+        /*
         res.sendFile(path.join(__dirname, 'profilePictures/defaultPP.png'),  (err) => {
             if (err) {
                 console.log(err);
@@ -585,6 +587,7 @@ app.get('/user/:userID/profile-picture/:profilePicture', (req, res) => {
                 //console.log('Sent:', 'profilePictures/defaultPP.png');
             }}
             )
+            */
     }
     else if (req.params.profilePicture === '1') {
         res.sendFile(path.join(__dirname, 'profilePictures/' + req.params.userID + '.png'),  (err) => {
