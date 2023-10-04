@@ -541,18 +541,37 @@ app.get('/database-food/:mealitemID/p:start', (req, res) => {
 Add new food item to database     
 =====================================================================================*/
 
+const verifyNewItem = (item) => {
+    if(item.name === "")
+    {
+        return true
+    }
+    if(item.servingSize < 1)
+    {
+        return true
+    }
+    else return false
+}
+
+
 app.post('/database-food/new-item', (req, res) => {
-    const foodItemID = `${uuid.v4()}`;
-    connection.execute(`INSERT INTO foodItems(foodItemID, name, brand, servingSize, servingUnit, calories, protein, fat, carbs) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
-        [foodItemID, req.body.name, req.body.brandName, req.body.servingSize, req.body.servingUnit, req.body.calories, req.body.protein, req.body.fat, req.body.carbs])
-    .then(result => {
-        //throw new Error("Testing Error");
-        res.send({error : false, errorType: "none"})
-    })
-    .catch(err => {
-        console.log(err)
+    if (verifyNewItem(req.body) === true)
+    {
         res.status(500).send({message : "There was an issue adding the item to the food database."})
-    })
+    }
+    else{
+        const foodItemID = `${uuid.v4()}`;
+        connection.execute(`INSERT INTO foodItems(foodItemID, name, brand, servingSize, servingUnit, calories, protein, fat, carbs) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+            [foodItemID, req.body.name, req.body.brandName, req.body.servingSize, req.body.servingUnit, req.body.calories, req.body.protein, req.body.fat, req.body.carbs])
+        .then(result => {
+            console.log("no error")
+            res.send({error : false, errorType: "none"})
+        })
+        .catch(err => {
+            console.log(err)
+            res.status(500).send({message : "There was an issue adding the item to the food database."})
+        })
+    }
 })
 
 /*=================================================================================
