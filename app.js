@@ -584,7 +584,7 @@ I used html error code 418 as it has no real error use to realy this message to 
 It works easily with the way server errors are handled by the client, but It should maybe do something different
 =====================================================================================*/
 
-app.get('/user/:userID/profile-picture/:profilePicture', (req, res) => {
+app.get('/user/:userID/profile-picture', (req, res) => {
 
 
     res.sendFile(path.join(__dirname, 'profilePictures/' + req.params.userID + '.png'),  (err) => {
