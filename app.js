@@ -94,7 +94,8 @@ const path = require('path'); //needed for the path stuff
 
 app.use(cors());
 app.use(express.json());
-app.use(bodyParser.json())
+app.use(bodyParser.json());
+//I had this set to false for some reason
 app.use(bodyParser.urlencoded({ extended: false }))
 
 //app.use(express.static("dist"))
@@ -105,6 +106,33 @@ const port = 3000
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
+
+/*================================================
+
+CONNECTION POOL
+-If the connection failed, the user needs to be told
+
+=================================================*/
+
+//mysql stuff
+const mysql = require('mysql2/promise')
+
+//I need to change these connection limits
+const connection = mysql.createPool({
+    host: dbHost,
+    user: dbUser,
+    password: dbPassword,
+    database: database,
+    waitForConnections: true,
+    connectionLimit: 10,
+    maxIdle: 10, // max idle connections, the default value is the same as `connectionLimit`
+    idleTimeout: 60000, // idle connections timeout, in milliseconds, the default value 60000
+    queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0
+  });
+
+
 
 /*
 https.createServer(
@@ -144,7 +172,6 @@ const storage = multer.diskStorage({
     filename: function (req, file, cb) {
       //const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
       //cb(null, file.fieldname + '-' + uniqueSuffix + '.png')
-      //console.log(req.body)
       cb(null, req.params.userID + '.png')
 
     }
@@ -167,21 +194,22 @@ const saltRounds = 12;
 
 const jwt = require('jsonwebtoken');
 
-//511 for missing token  No it shouldnt
+//511 for missing token?  No it shouldnt
 //403 should be returned if userID does not match token
+/*
+
+
+*/
 const authMiddleware = (req, res, next) => {
     const userID = req.params.userID
     const auth = req.get('authorization')
-
     if(!auth)
     {
         //this will be if auth is undefined, in other words there is no authroization header included in the request
         res.status(403).send({message: "Need authorization"})
         return
     }
-
     const [bearer_, token] = auth.split(" ");
-
     if(bearer_ != "Bearer")
     {
         //the authroization header was not formed correctly
@@ -190,7 +218,6 @@ const authMiddleware = (req, res, next) => {
     }
 
     jwt.verify(token, jwtSecret, function(err, decoded) {
-
         //if token has expired
         if(err) {
             if (err.name === "TokenExpiredError"){
@@ -198,42 +225,16 @@ const authMiddleware = (req, res, next) => {
             }
             return
         }
-
         if(decoded.userID === userID)
         {
             next();
         }
-        else if (decoded.userID != userID)
+        else if (decoded.userID !== userID)
         {
             res.status(403).send({message: "unauthorized access"})
         }
     });
-
 }
-
-/*================================================
-
-CONNECTION POOL
--If the connection failed, the user needs to be told
-
-=================================================*/
-
-//mysql stuff
-const mysql = require('mysql2/promise')
-
-const connection = mysql.createPool({
-    host: dbHost,
-    user: dbUser,
-    password: dbPassword,
-    database: database,
-    waitForConnections: true,
-    connectionLimit: 10,
-    maxIdle: 10, // max idle connections, the default value is the same as `connectionLimit`
-    idleTimeout: 60000, // idle connections timeout, in milliseconds, the default value 60000
-    queueLimit: 0,
-    enableKeepAlive: true,
-    keepAliveInitialDelay: 0
-  });
 
 /*================================================
 LOGIN
@@ -241,33 +242,9 @@ LOGIN
 -need to make sure usernames are unique
   -I think I've satisfied this now
 
--token login may change
--creating a jwt should maybe be a utility function which could be used by both userLogin and signup
+Eventually I should use sessions for logging in. The user will then get a jwt token for making crud operations that has a lifespan of 30 minutes or something
+Theres no real user data to protect, that level of security is not important. The current JWT tokens will become invalid after a day.
 =================================================*/
-
-//token login
-app.post('/login/token/:userID', authMiddleware, (req, res) => {
-    const userID = req.params.userID
-
-    connection.execute(`SELECT userID, username, password, name, profilePicture, age, weight FROM users WHERE userID= ?`, [userID])
-    .then(result => {
-        if (result[0].length === 0){
-            //this really should never happen
-            res.send({userID: "notFound"})
-        }
-        else{
-            const response = {
-                userID : result[0][0].userID,
-                username: result[0][0].username,
-                name: result[0][0].name,
-                profilePicture : result[0][0].profilePicture,
-                age : result[0][0].age,
-                weight : result[0][0].weight,
-            }
-            res.send(response)
-        }
-    })
-})
 
 
 //The lack of error handling is causing issues here
@@ -304,6 +281,29 @@ app.post('/login', (req, res) => {
     .catch(err => {console.log(err)})
 })
 
+//token login
+app.post('/login/token/:userID', authMiddleware, (req, res) => {
+    const userID = req.params.userID
+
+    connection.execute(`SELECT userID, username, password, name, profilePicture, age, weight FROM users WHERE userID= ?`, [userID])
+    .then(result => {
+        if (result[0].length === 0){
+            //this really should never happen
+            res.send({userID: "notFound"})
+        }
+        else{
+            const response = {
+                userID : result[0][0].userID,
+                username: result[0][0].username,
+                name: result[0][0].name,
+                profilePicture : result[0][0].profilePicture,
+                age : result[0][0].age,
+                weight : result[0][0].weight,
+            }
+            res.send(response)
+        }
+    })
+})
 
 
 
@@ -577,26 +577,32 @@ app.post('/database-food/new-item', (req, res) => {
 /*=================================================================================
 Get the profile picture
 
-this should change
-the way profile pictures are stored should change
+Originally checked if user ever uploaded a profile picture.
+Seems unecesary, If theres no profile picture just assume they never uploaded one
 
-TODO
--pehaps change so to fall back to the default
--could also just check if the user uploaded a profile picture from sql
--or just check of the file exists and then return the default profile or whatever info is needed to say there is none
--or maybe check through the client if the profile picture has been set, if not then dont bother fetching it
-
--best it to just see if its been set, if not then dont bother fetching
--then this can just be here for the api
-
-
+I used html error code 418 as it has no real error use to realy this message to the client. 
+It works easily with the way server errors are handled by the client, but It should maybe do something different
 =====================================================================================*/
 
 app.get('/user/:userID/profile-picture/:profilePicture', (req, res) => {
+
+
+    res.sendFile(path.join(__dirname, 'profilePictures/' + req.params.userID + '.png'),  (err) => {
+        if (err) {
+            //console.log(err);
+            res.status(418).send({message: "No Profile Picture"});
+            //res.status(err.status).send({message : "There was an issue getting your profile picture"})
+            //                res.status(err.status).send({message : "message"})
+        } else {
+            //console.log('Sent:', 'profilePictures/' + req.body.userID + '.png');
+        }}
+    )
+
+    /*
     if(req.params.profilePicture === '0')
     {
         res.status(418).send({message: "No Profile Picture"});
-        /*
+
         res.sendFile(path.join(__dirname, 'profilePictures/defaultPP.png'),  (err) => {
             if (err) {
                 console.log(err);
@@ -605,53 +611,106 @@ app.get('/user/:userID/profile-picture/:profilePicture', (req, res) => {
                 //console.log('Sent:', 'profilePictures/defaultPP.png');
             }}
             )
-            */
+            
     }
     else if (req.params.profilePicture === '1') {
-        res.sendFile(path.join(__dirname, 'profilePictures/' + req.params.userID + '.png'),  (err) => {
-            if (err) {
-                console.log(err);
-                res.status(err.status).send({message : "There was an issue getting your profile picture"})
-                //                res.status(err.status).send({message : "message"})
-            } else {
-                //console.log('Sent:', 'profilePictures/' + req.body.userID + '.png');
-            }}
-            )
+
     }
-    else {console.log("Get Profile Picture Error. Should not see this.")}
+    else {console.log("Get Profile Picture Error. Should not see this.")}*/
     //if they get her it means the user supplied an incorrect value for the profile picture, I decided on a status for this
 })
 
+
+
+
+
 /*=================================================================================
-Update User info
+AUTH MIDDLEWARE FOR UPDATING USER DATA
+
+spent a long time trying to get file upload working with password as part of the body
+Its not something you can do with multer. I just decided to put the password in the authentication header.
+It took two seconds to get that working. Not sure if its a bad way to do it. should have just done it earlier but was being stuborn
 =====================================================================================*/
 
-app.patch('/user/:userID/user-info', authMiddleware, (req, res) => {
+const userUpdateAuth = (req, res, next) => {
+    const password = req.get('authorization')
+    if (password === "")
+    {
+        //this needs unauthorized accces status code
+        res.status(500).send({message : "You need to submit your current password to make changes to your profile."})
+        return
+    }
+    connection.execute(`SELECT password from users WHERE userID = ?`, [req.params.userID])
+    .then(result => {
+        if (result[0].length === 0){
+            res.send({userID: "notFound"})
+        }
+        else{
+            bcrypt.compare(password, result[0][0].password, function(err, hresult) {
+                if(hresult === true){
+                    next();
+                }
+                else{
+                    res.status(500).send({message : "Invalid Password"})
+                }
+            })
+        }
+    })
+
+}
+
+
+/*=================================================================================
+Update User info
+
+I should look this over and make sure everything is still okay.
+Seems to work fine at the moment
+=====================================================================================*/
+
+app.patch('/user/:userID/user-info', userUpdateAuth, (req, res) => {
     const userData = req.body.userData;
-    connection.execute(`UPDATE users SET name = ?, age = ?, weight = ? WHERE userID = ?`,
-    [userData.name, userData.age, userData.weight, userData.userID])
+
+    connection.execute(`UPDATE users SET username = ?, name = ? WHERE userID = ?`,
+    [userData.username, userData.name, userData.userID])
     .then(result => {
         //throw new Error("Testing Error");
+        //why is this sending error false information?
         res.send({error : false, errorType: "none"})
     })
     .catch(err => {
         console.log(err)
         res.status(500).send({message : "There was an issue updating your info."})
-    })})
+    })
+})
 
 /*=================================================================================
 Update user profile picture
 
 this needs more complicated error hanling
-=====================================================================================*/
 
-app.patch('/user/:userID/upload-profile-picture', authMiddleware, upload.single('file'), function (req, res, next) {
+needs to check if sent file is actaully an image
+need to remove this database query, unecessary
+=====================================================================================*/
+app.patch('/user/:userID/upload-profile-picture', userUpdateAuth, upload.single('file'), function (req, res, next) {
+    
+    //I think these were just to send something. probably could just send a status of 200
+    res.send({error : false, errorType: "none"})
+    /*
+        Theres no need to do anything here anymore
+      
+        Ill probably end up removing profilePicture from users table, its useless
+    */
+    //console.log(req.body)
+    /*
     connection.execute(`UPDATE users SET profilePicture = 1 WHERE userID = ?`, [req.params.userID])
     .then(result => {
         //throw new Error("Testing Error");
+        console.log("success")
         res.send({error : false, errorType: "none"})
     })
     .catch(err => {
         console.log(err)
         res.status(500).send({message : "There was an issue updating your profile picture."})
-    })})
+    })
+    */
+})
