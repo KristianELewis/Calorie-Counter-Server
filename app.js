@@ -404,7 +404,7 @@ TODO
 ==========================================================================*/
 app.get('/user/:userID/date/:date', authMiddleware, (req, res) => {
     connection.execute(
-        `SELECT name, loggedID, servingSize, servingUnit, calories, protein, fat, carbs, amount, meal 
+        `SELECT name, loggedID, brand, servingSize, servingUnit, calories, protein, fat, carbs, amount, meal 
             FROM loggedMealItems 
         JOIN foodItems ON foodItems.foodItemID = loggedMealItems.foodItemID 
             WHERE userID= ? AND day = ? `, [req.params.userID, req.params.date])
