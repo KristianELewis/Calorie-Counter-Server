@@ -1,16 +1,13 @@
 /*
 TODO
 
--sort out userID username nonsense
 
 -improve login functionality
     -signing up should log you in
 
--add rendered react stuff
-
--need to organize, and separate into diffedrent files
-
--make api restful
+-Need to add express router
+    -make api restful
+    -routing files based on resources
 
 -look over status responses
 
@@ -19,9 +16,6 @@ TODO
     -perhaps just send apropriate 200 status responses and any necessary data
 
 -test authentication responses with postman
-
-POTENTIAL TODO
--add express router
 
 ---------------------------------------------------
 
@@ -349,6 +343,10 @@ const verifySignup = (req, res, next) => {
     }
     //isNaN checks if a value is valid number. Maybe remove the undefined check?
     //currently using the old error system, If moving over to errors, undefined and isNan will be checking for different errors, The users should be told what the issue is
+    /*
+
+    No longer should be checking for age and weight
+
     else if(req.body.userData.age === undefined || req.body.userData.age < 1 || isNaN(req.body.userData.age))
     {
         res.send({error: true, errorType : "Invalid Age"})
@@ -356,7 +354,7 @@ const verifySignup = (req, res, next) => {
     else if(req.body.userData.weight === undefined || req.body.userData.weight < 1 || isNaN(req.body.userData.weight))
     {
         res.send({error: true, errorType : "Invalid Weight"})
-    }
+    }*/
     else 
     {
         next();
@@ -369,14 +367,16 @@ app.post('/signup', verifySignup, async function (req, res, next) {
     const password = req.body.userData.password
     const hash = bcrypt.hashSync(password, saltRounds);
     const name = req.body.userData.name;
+    /* no longer using age and weight
     const weight = req.body.userData.weight;
     const age = req.body.userData.age;
-
+    */
     //I can do this differently, dont need await probably
     //can probably get rid of "const mealQuery" as well
     //const mealQuery = await 
-    connection.execute(`INSERT INTO users(userID, username, password, name, profilePicture, weight, age) VALUES (?, ?, ?, ?, FALSE, ?, ?)`,
-        [userID, username, hash, name, weight, age])
+    //also not using profilePicture anymore
+    connection.execute(`INSERT INTO users(userID, username, password, name, profilePicture) VALUES (?, ?, ?, ?, FALSE)`,
+        [userID, username, hash, name])
     .then((response)=> {
         //should create a jwt and send it back to the users so they will auto log in
         res.send({error: false})
