@@ -683,6 +683,30 @@ app.patch('/user/:userID/user-info', userUpdateAuth, (req, res) => {
     })
 })
 
+
+/*=================================================================================
+Change password
+
+do not need to be sending userdta
+
+=====================================================================================*/
+
+app.patch('/user/:userID/user-info/password', userUpdateAuth, (req, res) => {
+    const userID = req.params.userID;
+    const password = req.body.password
+
+    const hash = bcrypt.hashSync(password, saltRounds);
+    connection.execute(`UPDATE users SET password = ? WHERE userID = ?`,
+    [hash, userID])
+    .then(result => {
+        res.send({error : false, errorType: "none"})
+    })
+    .catch(err => {
+        console.log(err)
+        res.status(500).send({message : "There was an issue updating password."})
+    })
+})
+
 /*=================================================================================
 Update user profile picture
 
