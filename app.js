@@ -145,34 +145,52 @@ https.createServer(
 
 /*======================================================================================
 MULTER
-
 multer is used for processing file uploads. 
-
 only profile pictures are uploaded at the moment
 TODO
-
-//probably should make sure they are pictures
-//this needs to change to make the filename something else
-//check if req.params exists
 ======================================================================================*/
+const { unlink } = require('node:fs/promises');
 
 const multer = require('multer')
 //const upload = multer({ dest: 'uploads/' })
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-      cb(null, 'profilePictures/')
+        cb(null, 'profilePictures/')
     },
     filename: function (req, file, cb) {
-      //const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
-      //cb(null, file.fieldname + '-' + uniqueSuffix + '.png')
-      cb(null, req.params.userID + '.png')
-
+        //const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+        //cb(null, file.fieldname + '-' + uniqueSuffix + '.png')
+        cb(null, req.params.userID + req.fileExt)
     }
-  })
-  
-  const upload = multer({ storage: storage })
+})
 
+const upload = multer({ 
+    storage: storage,
+    fileFilter: function (req, file, cb) {
+        /*
+        I thought mime types might be better to check, but if you change the extension of a txt file to png, checking the mime type will still show image/png
+        not sure the best way to prevent non images from being uploaded. Interestingly enough, trying to load it into an img tag will actually not work, which is how im checking image validity on the front end
+        I could potentially do something cursed here and try to load it into an image tag
+
+        const acceptedTypes = file.mimetype.split('/');
+        */
+        req.fileExt = path.extname(file.originalname);
+        if(req.fileExt !== '.png' && req.fileExt !== '.jpg' && req.fileExt !== '.gif' && req.fileExt !== '.jpeg') {
+            req.invalidFile = true;
+            cb(null, false)
+        }
+        else{
+            cb(null, true)
+        }
+    },
+    limits:{
+        //Idk what this file size translates to. Is this (1024 * 1024) bytes?
+        //this is 1 MB I guess?
+        //I think thats more than enough for a profile pic honestly
+        fileSize: 1024 * 1024
+    }
+})
 
 /*================================================
 authentication/ authorization
@@ -574,55 +592,6 @@ app.post('/database-food/new-item', (req, res) => {
     }
 })
 
-/*=================================================================================
-Get the profile picture
-
-Originally checked if user ever uploaded a profile picture.
-Seems unecesary, If theres no profile picture just assume they never uploaded one
-
-I used html error code 418 as it has no real error use to realy this message to the client. 
-It works easily with the way server errors are handled by the client, but It should maybe do something different
-=====================================================================================*/
-
-app.get('/user/:userID/profile-picture', (req, res) => {
-
-
-    res.sendFile(path.join(__dirname, 'profilePictures/' + req.params.userID + '.png'),  (err) => {
-        if (err) {
-            //console.log(err);
-            res.status(418).send({message: "No Profile Picture"});
-            //res.status(err.status).send({message : "There was an issue getting your profile picture"})
-            //                res.status(err.status).send({message : "message"})
-        } else {
-            //console.log('Sent:', 'profilePictures/' + req.body.userID + '.png');
-        }}
-    )
-
-    /*
-    if(req.params.profilePicture === '0')
-    {
-        res.status(418).send({message: "No Profile Picture"});
-
-        res.sendFile(path.join(__dirname, 'profilePictures/defaultPP.png'),  (err) => {
-            if (err) {
-                console.log(err);
-                res.status(err.status).send({message : "There was an issue getting your profile picture"})
-            } else {
-                //console.log('Sent:', 'profilePictures/defaultPP.png');
-            }}
-            )
-            
-    }
-    else if (req.params.profilePicture === '1') {
-
-    }
-    else {console.log("Get Profile Picture Error. Should not see this.")}*/
-    //if they get her it means the user supplied an incorrect value for the profile picture, I decided on a status for this
-})
-
-
-
-
 
 /*=================================================================================
 AUTH MIDDLEWARE FOR UPDATING USER DATA
@@ -708,33 +677,142 @@ app.patch('/user/:userID/user-info/password', userUpdateAuth, (req, res) => {
 })
 
 /*=================================================================================
-Update user profile picture
+PROFILE PICTURE PATHS AND FUNCTONS
 
-this needs more complicated error hanling
+==================================================================================*/
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/*----------------------------------------------------------------------------------
+DELETE PROFILE PICTURE MIDDLEWARE
 
-needs to check if sent file is actaully an image
-need to remove this database query, unecessary
-=====================================================================================*/
-app.patch('/user/:userID/upload-profile-picture', userUpdateAuth, upload.single('file'), function (req, res, next) {
-    
-    //I think these were just to send something. probably could just send a status of 200
-    res.send({error : false, errorType: "none"})
-    /*
-        Theres no need to do anything here anymore
-      
-        Ill probably end up removing profilePicture from users table, its useless
-    */
-    //console.log(req.body)
-    /*
-    connection.execute(`UPDATE users SET profilePicture = 1 WHERE userID = ?`, [req.params.userID])
+pretty sure this does not need to be async
+----------------------------------------------------------------------------------*/
+const deleteProfilePicture = (req, res, next) => {
+    connection.execute(`SELECT profilePicture FROM users WHERE userID = ?`,
+    [req.params.userID])
     .then(result => {
-        //throw new Error("Testing Error");
-        console.log("success")
+        if(result[0].length < 1){
+            //the user probably doesnt exist, this should really not happen under normal circumstances
+            //if the user doesnt exist it should be caught by the auth middleware that occurs before this
+        }
+        else if (result[0][0].profilePicture === "none"){
+            //console.log("delete middleware: no picture")
+            req.pictureFound = false;
+            next()
+        }
+        else{
+            //console.log("delete middleware: picture found")
+            req.pictureFound = true;
+            const profilePicturePath = path.join(__dirname, 'profilePictures/' + req.params.userID + result[0][0].profilePicture)
+            //console.log(profilePicturePath)
+            unlink(profilePicturePath)
+            .then(()=> {
+                //console.log("Deleted Successfully")
+                next()
+
+            })
+            .catch((err) => {
+                console.log(err)
+                //If it couldnt delete the file it shouldnt continue
+                //althought this likely means that the file does not exist, but the datbase does not have "none" stored
+                //Its probable the error thrown here would mentions that. If thats the case eventually I should check for that error,
+                //and fix the database entry
+                res.status(500).send({message : "There was an issue processing your request."})
+            })
+        }
+    })
+}
+
+/*----------------------------------------------------------------------------------
+DELETE PROFILE PICTURE PATH
+
+----------------------------------------------------------------------------------*/
+app.delete('/user/:userID/delete-profile-picture', userUpdateAuth, deleteProfilePicture, (req, res) => {
+    if(req.pictureFound)
+    {
+        connection.execute(`UPDATE users SET profilePicture = 'none' WHERE userID = ?`,
+        [req.params.userID])
+        .then(() =>{
+            //switch to res.status(200)
+            res.send({error : false, errorType: "none"})
+        })
+        .catch((err) => {
+            //picture was deleted but this was not updated in the database
+            //this will cause issues later
+            //should log if this happens
+            //this could potentially be solved in the deletemiddleware. I left a comment about this situation in there
+            res.status(500).send({message : "There was an issue uploading your profile pciture"})
+        })
+    }
+    else{
+        //there was no profile picture to begin with.
+        //this should only be for api calls, in the frontend this is prevented
         res.send({error : false, errorType: "none"})
+    }
+})
+
+/*----------------------------------------------------------------------------------
+UPLOAD NEW PROFILE PICTURE
+
+----------------------------------------------------------------------------------*/
+app.patch('/user/:userID/upload-profile-picture', userUpdateAuth, deleteProfilePicture, upload.single('file'), function (req, res, next) {
+    if(req.invalidFile){
+        res.status(500).send({message : "Invalid file type"})
+    }
+    else{
+        connection.execute(`UPDATE users SET profilePicture = ? WHERE userID = ?`,
+        [req.fileExt, req.params.userID])
+        .then(() =>{
+            //switch to res.status(200)
+            res.send({error : false, errorType: "none"})
+        })
+        .catch((err) => {
+            //If an error happened then the profile picture was uploaded but there was an issue with the mysql server.
+            //I guess this should attempt to delete the uploaded picture. If that causes an error, than there are some serious issues
+            //in any case this stuff should be logged
+            //maybe something to look into later, its an unlikely thing to happen, and not a big deal anyway
+            res.status(500).send({message : "There was an issue uploading your profile pciture"})
+        })
+    }
+})
+
+/*---------------------------------------------------------------------------------
+Get the profile picture
+
+I used html error code 418 as it has no real error use to realy this message to the client. 
+It works easily with the way server errors are handled by the client, but It should maybe do something different
+---------------------------------------------------------------------------------*/
+
+app.get('/user/:userID/profile-picture', (req, res) => {
+    connection.execute(`SELECT profilePicture FROM users WHERE userID = ?`,
+    [req.params.userID])
+    .then(result => {
+        if(result[0].length < 1){
+            /*
+                the user probably doesnt exist
+                this should never get reached, it should have been prevented by the auth middleware
+            */
+        }
+        else if (result[0][0]. profilePicture === "none"){//the user has not set a profile picture
+            //console.log(result[0][0])
+            res.status(418).send({message: "No Profile Picture"});
+        }
+        else{//profile pciture set
+            //console.log(result[0][0])
+            res.sendFile(path.join(__dirname, 'profilePictures/' + req.params.userID + result[0][0]. profilePicture),  (err) => {
+                if (err) {
+                    /*
+                        Reaching this most likely means that the database was not successfully changed after a profile picture deletion.
+                        Which means that the profile picture does not exist anymore
+                        probably should just do an sql query here and set the profilePicture to "none"
+                    */
+                    res.status(418).send({message: "No Profile Picture"});
+                } else {//no Error, maybe just delete this
+                }}
+            )
+        }
     })
-    .catch(err => {
+    .catch(err => {//not sure what could cause this error
         console.log(err)
-        res.status(500).send({message : "There was an issue updating your profile picture."})
+        res.status(500).send({message : "There was an issue getting your profile picture."})
     })
-    */
 })
