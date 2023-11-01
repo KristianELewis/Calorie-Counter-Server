@@ -92,14 +92,16 @@ app.use(bodyParser.json());
 //I had this set to false for some reason
 app.use(bodyParser.urlencoded({ extended: false }))
 
-//app.use(express.static("dist"))
+app.use(express.static("dist"))
 
-const port = 3000
+//const port = 3000
+const port = 443;
 
-
+/*
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
+*/
 
 /*================================================
 
@@ -128,7 +130,7 @@ const connection = mysql.createPool({
 
 
 
-/*
+
 https.createServer(
     {
       requestCert: true,
@@ -141,7 +143,7 @@ https.createServer(
   .listen(port, () => {
     console.log("started")
   });
-*/
+
 
 /*======================================================================================
 MULTER
