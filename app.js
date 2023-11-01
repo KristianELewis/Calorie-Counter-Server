@@ -144,6 +144,13 @@ https.createServer(
     console.log("started")
   });
 
+//This redirects. Seems to work just as is
+//https://stackoverflow.com/questions/7450940/automatic-https-connection-redirect-with-node-js-express
+var http = require('http');
+http.createServer(function (req, res) {
+    res.writeHead(301, { "Location": "https://" + req.headers['host'] + req.url });
+    res.end();
+}).listen(80);
 
 /*======================================================================================
 MULTER
