@@ -1,7 +1,5 @@
 /*
 TODO
-
-
 -improve login functionality
     -signing up should log you in
 
@@ -41,7 +39,6 @@ ERRORS
     -almost complete
 
 
--should implement rate limiting on aws side, theres a http code for that
 ----------------------------------------------------
 */
 
@@ -77,12 +74,8 @@ const uuid = require('uuid');
 //needed for TLS
 const fs = require('fs');
 const https = require('https');
-
 const express = require('express');
-
 const app = express()
-
-
 
 const path = require('path'); //needed for the path stuff
 
@@ -92,22 +85,19 @@ app.use(bodyParser.json());
 //I had this set to false for some reason
 app.use(bodyParser.urlencoded({ extended: false }))
 
+
 app.use(express.static("dist"))
 
 //const port = 3000
 const port = 443;
 
-/*
-app.listen(port, () => {
+/*app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
-})
-*/
+})*/
 
 /*================================================
-
 CONNECTION POOL
 -If the connection failed, the user needs to be told
-
 =================================================*/
 
 //mysql stuff
@@ -127,8 +117,6 @@ const connection = mysql.createPool({
     enableKeepAlive: true,
     keepAliveInitialDelay: 0
   });
-
-
 
 
 https.createServer(
@@ -159,10 +147,8 @@ only profile pictures are uploaded at the moment
 TODO
 ======================================================================================*/
 const { unlink } = require('node:fs/promises');
-
 const multer = require('multer')
 //const upload = multer({ dest: 'uploads/' })
-
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         cb(null, 'profilePictures/')
@@ -173,7 +159,6 @@ const storage = multer.diskStorage({
         cb(null, req.params.userID + req.fileExt)
     }
 })
-
 const upload = multer({ 
     storage: storage,
     fileFilter: function (req, file, cb) {
@@ -212,15 +197,9 @@ Needd to make sure the expiration date will auto fail it, if not I need to check
 
 const bcrypt = require('bcrypt');
 const saltRounds = 12;
-
 const jwt = require('jsonwebtoken');
-
 //511 for missing token?  No it shouldnt
 //403 should be returned if userID does not match token
-/*
-
-
-*/
 const authMiddleware = (req, res, next) => {
     const userID = req.params.userID
     const auth = req.get('authorization')
@@ -256,18 +235,11 @@ const authMiddleware = (req, res, next) => {
         }
     });
 }
-
 /*================================================
 LOGIN
-
--need to make sure usernames are unique
-  -I think I've satisfied this now
-
-Eventually I should use sessions for logging in. The user will then get a jwt token for making crud operations that has a lifespan of 30 minutes or something
+Might switch to useing sessions instead of using JWT
 Theres no real user data to protect, that level of security is not important. The current JWT tokens will become invalid after a day.
 =================================================*/
-
-
 //The lack of error handling is causing issues here
 app.post('/login', (req, res) => {
     const username = req.body.username
@@ -276,7 +248,8 @@ app.post('/login', (req, res) => {
     connection.execute(`SELECT userID, username, password, name, profilePicture, age, weight FROM users WHERE username= ?`, [username])
     .then(result => {
         if (result[0].length === 0){
-            res.send({userID: "notFound"})
+            //res.send({userID: "notFound"})
+            res.status(401).send({message : "Incorrect username or password"})
         }
         else{
             bcrypt.compare(password, result[0][0].password, function(err, hresult) {
@@ -293,15 +266,15 @@ app.post('/login', (req, res) => {
                     }
                     res.send(response)
                 }
-                else{
-                    res.send({userID: "notFound"})
+                else{        //res.status(500).send({message : "There was an issue getting the data for this day."})
+
+                    res.status(401).send({message : "Incorrect username or password"})
                 }
             })
         }
     })
-    .catch(err => {console.log(err)})
+    .catch(err => {console.log(err)}) //Shouldn't this be sending an error to the user?
 })
-
 //token login
 app.post('/login/token/:userID', authMiddleware, (req, res) => {
     const userID = req.params.userID
@@ -310,7 +283,7 @@ app.post('/login/token/:userID', authMiddleware, (req, res) => {
     .then(result => {
         if (result[0].length === 0){
             //this really should never happen
-            res.send({userID: "notFound"})
+            res.status(401).send({message : "Incorrect username or password"})
         }
         else{
             const response = {
@@ -325,11 +298,10 @@ app.post('/login/token/:userID', authMiddleware, (req, res) => {
         }
     })
 })
-
-
-
 /*==========================================================================
 Sign up
+
+I had something in the lgin secttions that said make sure usernames are unique, it also said that was taken care, double check it
 
 Should not accept any empty inputs, should return an error
 
@@ -339,49 +311,29 @@ TODO
 -generic 400 status code will be used
 -needs more validiation, no spaces, no letters for number, things like that
 ==========================================================================*/
-//not sure how else to handle this
 
 //checks if there is white space
 //  /\s/ is regular expression for white space
 function hasWhiteSpace(str) {
     return /\s/.test(str);
 }
-
-
-//i think this validate function could be broken up, lots of overlap. Some of this could be turned into different functions
-//should probably check the length
-//this needs to stop using the old error system
 const verifySignup = (req, res, next) => {
     if(req.body.userData === undefined)
     {
-        res.send({error: true, errorType : "No information sent"})
+        res.status(400).send({error: true, message : "No information sent"})
     }
     else if(req.body.userData.username === undefined || req.body.userData.username === '' || hasWhiteSpace(req.body.userData.username))
     {
-        res.send({error: true, errorType : "Invalid Username"})
+        res.status(400).send({error: true, message : "Invalid Username"})
     }
     else if(req.body.userData.password === undefined || req.body.userData.password === '' || hasWhiteSpace(req.body.userData.password))
     {
-        res.send({error: true, errorType : "Invalid Password"})
+        res.status(400).send({error: true, message : "Invalid Password"})
     }
     else if(req.body.userData.name === undefined || req.body.userData.name === '') //names can contain white space
     {
-        res.send({error: true, errorType : "No name sent"})
+        res.status(400).send({error: true, message : "No name sent"})
     }
-    //isNaN checks if a value is valid number. Maybe remove the undefined check?
-    //currently using the old error system, If moving over to errors, undefined and isNan will be checking for different errors, The users should be told what the issue is
-    /*
-
-    No longer should be checking for age and weight
-
-    else if(req.body.userData.age === undefined || req.body.userData.age < 1 || isNaN(req.body.userData.age))
-    {
-        res.send({error: true, errorType : "Invalid Age"})
-    }
-    else if(req.body.userData.weight === undefined || req.body.userData.weight < 1 || isNaN(req.body.userData.weight))
-    {
-        res.send({error: true, errorType : "Invalid Weight"})
-    }*/
     else 
     {
         next();
@@ -394,10 +346,7 @@ app.post('/signup', verifySignup, async function (req, res, next) {
     const password = req.body.userData.password
     const hash = bcrypt.hashSync(password, saltRounds);
     const name = req.body.userData.name;
-    /* no longer using age and weight
-    const weight = req.body.userData.weight;
-    const age = req.body.userData.age;
-    */
+
     //I can do this differently, dont need await probably
     //can probably get rid of "const mealQuery" as well
     //const mealQuery = await 
@@ -411,12 +360,12 @@ app.post('/signup', verifySignup, async function (req, res, next) {
     .catch(err => {
         if(err.code === "ER_DUP_ENTRY")
         {
-            res.send({error: true, errorType: "Username already in use"})
+            res.status(400).send({error: true, message: "Username already in use"})
         }
         else{
             //Getting wrong value for field here, could potentially use this for validating input, but probably should not be contacting the sql server
             //console.log(err)
-            res.send({error: true, errorType: "Server side error. Try again later."})
+            res.status(400).send({error: true, message: "Server side error. Try again later."})
         }
     })
 })
