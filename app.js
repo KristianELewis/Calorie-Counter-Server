@@ -17,8 +17,8 @@ EXPRESS CONFIG
 const cors = require('cors');
 const bodyParser = require('body-parser');
 //needed for TLS
-const fs = require('fs');
-const https = require('https');
+//const fs = require('fs');
+//const https = require('https');
 const express = require('express');
 const app = express()
 
@@ -29,13 +29,13 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }))
 app.use(express.static("dist"))
 
-//const port = 3000
-const port = 443;
-/*
+const port = 3000
+//const port = 443;
+
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
-*/
+/*
 https.createServer(
     {
       requestCert: true,
@@ -56,7 +56,7 @@ http.createServer(function (req, res) {
     res.writeHead(301, { "Location": "https://" + req.headers['host'] + req.url });
     res.end();
 }).listen(80);
-
+*/
 const login = require("./routes/login.js")
 app.use('/login', login)
 
