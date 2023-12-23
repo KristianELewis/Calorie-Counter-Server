@@ -58,10 +58,10 @@ http.createServer(function (req, res) {
 }).listen(80);
 */
 const login = require("./routes/login.js")
-app.use('/login', login)
+app.use('/caloriecounter/login', login)
 
 const databaseFood = require("./routes/database-food.js")
-app.use('/database-food', databaseFood)
+app.use('/caloriecounter/database-food', databaseFood)
 
 const user = require("./routes/user/user.js")
-app.use('/user/:userID', user)
+app.use('/caloriecounter/user/:userID', user)
